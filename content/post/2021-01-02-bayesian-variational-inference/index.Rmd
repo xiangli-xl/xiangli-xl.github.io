@@ -1,0 +1,70 @@
+---
+title: "Bayesian Variational Inference"
+author: ''
+date: '2021-01-02'
+output:
+  html_document:
+    df_print: paged
+categories: []
+tags: []
+slug: bayesian-variational-inference
+---
+# Bayesian Overview
+Bayesian inference can sometimes be very difficult to compute depending on the model settings (assumptions, dimensionality, etc). Heavy computations that often become intractable and some approximation techniques have to be used to address these issues and build fast and scalable systems or algorithms.\\
+The Bayes rule
+$$
+    p(\mathbf{Z} | \mathbf{X}) = \frac{p(\mathbf{X}, \mathbf{Z})}{p(\mathbf{X})} = \frac{p(\mathbf{X} | \mathbf{Z}) p(\mathbf{Z})}{p(\mathbf{X})}
+$$
+calculates the posterior based on three terms: a prior, a likelihood and an evidence. The first two are easy to get as they are assumed, the third one that is a normalisation factor, requires to be computed such that
+$$
+    p(\mathbf{X}) = \int p(\mathbf{X}, \mathbf{Z}) d\mathbf{Z}
+$$
+In low dimension this integral can be computed, however, it can become intractable in higher dimensions. The exact computation of the posterior distribution requires some approximation techniques. Some other computational difficulties can arise when some variables are discrete. Markov Chain Monte Carlo and Variational Inference methods  are the most used to overcome these problems.
+# Variational Inference Overview
+As discussed above, $ p(\mathbf{Z} | \mathbf{X})$ is typically intractable. In variational inference, there are two steps.
+## Family of Distribution
+The first step is to set up the parametrised family $\mathbf{Q}$ of distributions over the latent variables that defines the space where we search for our best approximation, $q(\mathbf{Z})$. The complexity of the family determines the complexity of the optimization. The most frequently used form comes from the balance of the bias and the complexity, that is the mean-field variational family as follows
+$$
+    q(\mathbf{Z}) = \prod_{m=1}^{M} q_{m}(Z_{m})
+$$
+where the M-dimensional random latent variables, z, are mutually independent and each governed by a distinct density. \\
+## Kullback-Leibler divergence
+Next, each $q(\mathbf{Z})\in \mathbf{Q} $ in the family is a candidate approximation. The goal is to find the best candidate $q(\mathbf{Z})$ as approximate distribution close to $ p(\mathbf{Z} | \mathbf{X})$, that minimizes the Kullback-Leibler divergence. The following optimization problem should be solved
+$$
+q^{*}(Z)  = \underset{q(\mathbf{Z}) \in \mathbf{Q}} {\mathrm{argmin}}\; KL(q(\mathbf{Z})\; || \; p(\mathbf{Z} | \mathbf{X}))
+$$
+The KL divergence can further be interpreted 
+$$
+\begin{aligned}
+KL(q(\mathbf{Z})\; || \; p(\mathbf{Z} | \mathbf{X}))  & = - \int q(\mathbf{Z}) \ln\frac{p(\mathbf{Z} | \mathbf{X})}{q(\mathbf{Z})} d\mathbf{Z} \\
+  & = \int q(\mathbf{Z})\ln q(\mathbf{Z}) d\mathbf{Z} - \int q(\mathbf{Z}) \ln p(\mathbf{Z} | \mathbf{X})d\mathbf{Z} \\
+  & = \mathbb{E}\big[ \ln q(\mathbf{Z})\big] - \int q(\mathbf{Z}) \ln \frac{p(\mathbf{X}, \mathbf{Z})}{p(\mathbf{X})} d\mathbf{Z} \\
+  & = \mathbb{E}\big[\ln q(\mathbf{Z})\big] + \int q(\mathbf{Z}) \ln p(\mathbf{X})d\mathbf{Z} - \int q(\mathbf{Z}) \ln p(\mathbf{X}, \mathbf{Z})d\mathbf{Z}\\
+  & = \mathbb{E}\big[\ln q(\mathbf{Z})\big] + \mathbb{E}\big[\ln p(\mathbf{X})\big] - \mathbb{E}\big[\ln p(\mathbf{X}, \mathbf{Z})\big] \\
+  & = \mathbb{E}\big[\ln q(\mathbf{Z})\big]  - \mathbb{E}\big[\ln p(\mathbf{X}, \mathbf{Z})\big] + \ln p(\mathbf{X}) \\
+\end{aligned}
+$$
+## Evidence Lower Bound (ELBO)
+The model evidence $\ln p(\mathbf{X})$ is constant and does not depend on the choice of the variational distribution. Instead of solving \ref{op1}, we optimize an alternative objective function as follows
+$$
+\begin{aligned}
+q(Z) & = \mathbb{E}\big[\ln p(\mathbf{X}, \mathbf{Z})\big] - \mathbb{E}\big[\ln q(\mathbf{Z})\big]
+\end{aligned}
+$$
+The function is called evidence lower bound (ELBO). Maximizing ELBO is equivalent to minizing the KL divergence , since the ELBO is the negative KL plus the constant model evidence. ELBO can be rewriten as a sum of the expected log likelihood of the observed data and the KL-divergence between the prior $p(\mathbf{Z})$ and the variational density $q(\mathbf{Z})$.
+$$
+\begin{aligned}
+ELBO(q(Z)) & = \mathbb{E}\big[\ln p(\mathbf{X}, \mathbf{Z})\big] - \mathbb{E}\big[\ln q(\mathbf{Z})\big] \\
+  & = \mathbb{E}\big[\ln p(\mathbf{X} | \mathbf{Z})\big] + \mathbb{E}\big[\ln p(\mathbf{Z})\big]  - \mathbb{E}\big[\ln q(\mathbf{Z})\big] \\
+  & = \mathbb{E}\big[\ln p(\mathbf{X} | \mathbf{Z})\big] - KL(q(\mathbf{Z}) \; ||\; p(\mathbf{Z}))\\
+\end{aligned}
+$$
+## Coordinate Ascent Variational Inference
+Combing the ELBO function and the mean-field family, we are then ready for solving the optimization problem. One of the most commonly used algorithms is coordinate ascent variational inference (CAVI) that is introduced by Bishop's book. CAVI iteratively optimizes each control factor of latent variable $Z_m$ of the mean-field variational density, with the others fixed. It finds the a local optimum of ELBO
+$$
+\ln q_{m}^{*}(Z_{m}) = \mathbb{E}\big[\ln p(\mathbf{X}, \mathbf{Z})\big] + \text{constant}
+$$
+After normalization, the optimal $\{q_m\}$ is 
+$$
+q_{m}^{*}(Z_{m}) = \frac{\exp\left\{ \mathbb{E}\big[\ln p(\mathbf{X}, \mathbf{Z})\big] \right\} }{\int\exp\left\{ \mathbb{E}\big[\ln p(\mathbf{X}, \mathbf{Z})\big] \right\}d Z_{m}}
+$$
